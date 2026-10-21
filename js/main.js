@@ -12,13 +12,18 @@ const UI = (() => {
       typeof target === "string" ? document.querySelector(target) : target;
     if (!targetEl) return;
 
-    const header = document.querySelector(".site-header");
-    const headerHeight = header ? header.offsetHeight : 0;
-    const targetY =
-      targetEl.getBoundingClientRect().top +
-      window.pageYOffset -
-      headerHeight -
-      16;
+    // Se for o topo da página, rola até a posição 0
+    let targetY = 0;
+    if (targetEl.id !== "topo" && targetEl !== document.body) {
+      const header = document.querySelector(".site-header");
+      const headerHeight = header ? header.offsetHeight : 0;
+      targetY =
+        targetEl.getBoundingClientRect().top +
+        window.pageYOffset -
+        headerHeight -
+        16;
+    }
+
     const startY = window.pageYOffset;
     const distance = targetY - startY;
 

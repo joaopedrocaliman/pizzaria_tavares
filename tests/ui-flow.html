@@ -1,0 +1,60 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>
+<iframe id="f" src="../index.html" style="width:400px;height:800px"></iframe>
+<script>
+const fr = document.getElementById('f');
+const fails = []; const ok = (c, m) => { if (!c) fails.push(m); };
+const wait = (ms) => new Promise(r => setTimeout(r, ms));
+fr.onload = async () => {
+  const w = fr.contentWindow, d = w.document, $ = (s) => d.querySelector(s);
+  w.Cart = w.eval('Cart'); w.Checkout = w.eval('Checkout');
+  w.localStorage.clear(); w.Cart.clear();
+  w.open = (u) => { w.__opened = u; return {}; };
+  // checkout vazio
+  w.Checkout.open(); ok($('#checkoutModal').hidden, 'checkout vazio não deve abrir');
+  // quick add bebida
+  $('[data-add="beb-agua-s-gas"]').click(); ok(w.Cart.count() === 1, 'quick add');
+  // modal pizza sem tamanho
+  $('[data-add="pizsal-calabresa"]').click(); ok(!$('#productModal').hidden, 'modal abre');
+  $('#productForm .pm-add').click(); ok(!$('#pmError').hidden, 'erro tamanho');
+  $('input[name="size"][value="1"]').click(); $('#pmPlus').click();
+  ok($('#pmTotal').textContent.includes('110,00'), 'total modal ' + $('#pmTotal').textContent);
+  $('#productForm .pm-add').click(); ok($('#productModal').hidden && w.Cart.count() === 3, 'add pizza');
+  ok(w.Cart.subtotal() === 350 + 11000, 'subtotal');
+  // drawer
+  $('#cartToggle').click(); ok($('#cartDrawer').classList.contains('open'), 'drawer');
+  $('[data-inc]').click(); ok(w.Cart.count() === 4, 'inc');
+  $('[data-dec]').click(); ok(w.Cart.count() === 3, 'dec');
+  $('#checkoutBtn').click(); ok(!$('#checkoutModal').hidden, 'checkout abre');
+  // sem modalidade
+  $('#coNext').click(); ok(!$('#modeError').hidden, 'exige modalidade');
+  // retirada -> review direto
+  $('input[name="mode"][value="retirada"]').click();
+  $('#coNext').click(); ok(!!$('#fNotes') && !$('#fStreet') && !$('input[name="payment"]'), 'retirada vai p/ revisão');
+  ok(d.querySelectorAll('#stepper li').length === 2, 'retirada 2 etapas');
+  $('#coBack').click();
+  $('input[name="mode"][value="entrega"]').click();
+  ok(d.querySelectorAll('#stepper li').length === 4, 'entrega 4 etapas');
+  $('#coNext').click(); ok(!!$('#fStreet'), 'endereço');
+  $('#coNext').click(); ok(!$('#addrError').hidden, 'endereço obrigatório');
+  const type = (sel, v) => { const i = $(sel); i.value = v; i.dispatchEvent(new w.Event('input', { bubbles: true })); };
+  type('#fStreet', 'Rua A'); type('#fNumber', '5'); type('#fDistrict', 'Centro');
+  $('#coNext').click(); ok(!!$('input[name="payment"]'), 'pagamento');
+  $('#coNext').click(); ok(!$('#payError').hidden, 'pagamento obrigatório');
+  $('input[value="pix"]').click(); ok(!$('input[name="needChange"]'), 'pix sem troco');
+  $('input[value="credito"]').click(); ok(!$('input[name="needChange"]'), 'crédito sem troco');
+  $('input[value="dinheiro"]').click(); ok(!!$('input[name="needChange"]'), 'dinheiro com troco');
+  $('input[name="needChange"][value="sim"]').click(); ok(!!$('#fChange'), 'campo troco');
+  $('#coNext').click(); ok(!$('#payError').hidden, 'troco obrigatório');
+  type('#fChange', '50'); $('#coNext').click(); ok(!$('#payError').hidden && !!$('#fChange'), 'troco insuficiente (total 118,50)');
+  type('#fChange', '150'); ok($('#changeInfo').textContent.includes('31,50'), 'troco estimado ' + $('#changeInfo').textContent);
+  $('#coNext').click(); ok(!!$('#fNotes'), 'revisão');
+  ok($('#checkoutContent').textContent.includes('R$ 118,50'), 'total revisão');
+  $('#coNext').click();
+  ok(w.__opened && w.__opened.startsWith('https://wa.me/5519999999999?text='), 'abre whatsapp');
+  ok(w.Cart.count() === 3, 'carrinho não limpo antes');
+  ok(!!$('#doneBtn'), 'tela pós-envio');
+  console.log(decodeURIComponent(w.__opened.split('text=')[1]));
+  $('#doneBtn').click(); ok(w.Cart.isEmpty(), 'limpa após confirmar');
+  console.log(fails.length ? 'FALHAS: ' + fails.join(' | ') : 'UI: TODOS OS TESTES PASSARAM');
+};
+</script></body></html>

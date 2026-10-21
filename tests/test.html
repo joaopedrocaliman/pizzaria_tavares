@@ -1,0 +1,42 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"></head><body>
+<div id="app"></div>
+<script>localStorage.clear();</script>
+<script src="../js/config.js"></script>
+<script src="../js/products.js"></script>
+<script src="../js/cart.js"></script>
+<script src="../js/checkout.js"></script>
+<script>
+const fails = []; const ok = (c, m) => { if (!c) fails.push(m); };
+// contagem
+let n = 0; MENU.forEach(c => n += c.products.length);
+console.log('Categorias', MENU.length, 'Produtos', n);
+ok(Object.keys(PRODUCT_INDEX).length === n, 'IDs duplicados');
+// money
+ok(parseBRL('50') === 5000 && parseBRL('50,00') === 5000 && parseBRL('R$ 1.000,50') === 100050 && parseBRL('50.5') === 5050 && isNaN(parseBRL('abc')), 'parseBRL');
+ok(formatBRL(3050) === 'R$ 30,50', 'formatBRL ' + formatBRL(3050));
+// carrinho
+ok(!Cart.add({ productId: 'massa-lasanha', qty: 1 }), 'lasanha sem sabor deveria falhar');
+ok(Cart.add({ productId: 'massa-lasanha', choices: { sabor: ['Frango'] }, qty: 2 }), 'add lasanha');
+ok(Cart.add({ productId: 'passal-bauru', sizeIndex: 0, qty: 1 }), 'add bauru');
+ok(Cart.add({ productId: 'passal-bauru', sizeIndex: 0, qty: 1 }), 'add bauru merge');
+ok(Cart.getItems().length === 2, 'merge');
+ok(Cart.subtotal() === 8000 + 6100, 'subtotal ' + Cart.subtotal());
+ok(!Cart.add({ productId: 'pizsal-moda-da-casa', sizeIndex: 1, choices: { sabores: ['Alho', 'Atum'] }, qty: 1 }), 'moda casa 2 sabores');
+ok(Cart.add({ productId: 'pizsal-moda-da-casa', sizeIndex: 1, choices: { sabores: ['Alho', 'Atum', 'Baiana', 'Salame'] }, qty: 1 }), 'moda casa 4');
+const k = Cart.getItems()[2].key; Cart.changeQty(k, 1); ok(Cart.subtotal() === 14100 + 12600, 'qty+');
+Cart.changeQty(k, -2); ok(Cart.getItems().length === 2, 'qty to 0 removes');
+ok(JSON.parse(localStorage.getItem(CONFIG.storageKey)).length === 2, 'persist');
+// mensagem retirada
+const s = Checkout._state; s.mode = 'retirada';
+let msg = Checkout.buildMessage(); console.log(msg);
+ok(!/Taxa|PAGAMENTO|Endereço|Troco/.test(msg) && msg.includes('*TOTAL:* R$ 141,00') && msg.includes('Retirada no restaurante'), 'msg retirada');
+// entrega dinheiro troco
+s.mode = 'entrega'; s.address = { street: 'Rua X', number: '10', district: 'Centro', complement: '', reference: 'Praça' };
+s.payment = 'dinheiro'; s.needChange = 'sim'; s.changeFor = '200';
+msg = Checkout.buildMessage(); console.log(msg);
+ok(msg.includes('*Taxa de entrega:* R$ 5,00') && msg.includes('*TOTAL:* R$ 146,00') && msg.includes('*Troco para:* R$ 200,00') && msg.includes('*Troco estimado:* R$ 54,00') && !msg.includes('Complemento'), 'msg entrega');
+const url = Checkout.buildWhatsAppURL();
+ok(url.startsWith('https://wa.me/5519999999999?text=') && decodeURIComponent(url.split('text=')[1]) === msg, 'url');
+s.payment = 'pix'; s.needChange = null; msg = Checkout.buildMessage(); ok(!msg.includes('Troco') && msg.includes('Pix'), 'pix sem troco');
+console.log(fails.length ? 'FALHAS: ' + fails.join(' | ') : 'TODOS OS TESTES PASSARAM');
+</script></body></html>
